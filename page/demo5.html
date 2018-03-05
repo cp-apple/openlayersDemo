@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>OpenLayers之实现地图热力图展示</title>
+    <link rel="stylesheet" href="../css/reset.css">
+    <link rel="stylesheet" href="../lib/openlayers/ol.css">
+    <link rel="stylesheet" href="../css/common.css">
+</head>
+<body>
+    <h2 class="titleH2">OpenLayers之实现地图热力图展示</h2>
+    <div id="cpMap" class="mapDemo"></div>
+</body>
+</html>
+<script src="../lib/jquery/jquery-1.12.4.min.js"></script>
+<script src="../lib/openlayers/ol.js"></script>
+<script src="../js/heatMapdata.js"></script>
+<script>
+    //地图层瓦片
+    var raster = new ol.layer.Tile({
+        source: new ol.source.OSM()
+    });
+
+    //热力图数据
+    var heatSource = new ol.source.Vector();
+    //创建热力图
+    var heatFeatures=[];
+    for(var i=0;i<heatmapData.length;i++){
+        heatFeatures.push(new ol.Feature({
+            geometry: new ol.geom.Point([heatmapData[i].Lng,heatmapData[i].Lat]),
+            population: 4000,
+            rainfall: 500
+        }));
+    }
+    //热力图层
+    var Heatmapvector = new ol.layer.Heatmap({
+        source: heatSource,
+        blur: parseInt(25, 10),
+        radius: parseInt(3, 10)
+    });
+    heatSource.addFeatures(heatFeatures);
+
+    //创建地图
+    var map = new ol.Map({
+        layers: [raster, Heatmapvector],
+        target: 'cpMap',
+        view: new ol.View({
+            center: [104.120282,30.617923], // 定义地图显示中心（成都市锦江区成龙路狮子山）
+            projection: 'EPSG:4326', // 指定投影使用EPSG:4326一个等同于WGS84坐标系
+            zoom: 13
+        })
+    });
+    /**
+     * 附加说明如下：
+     * 1、参考链接：http://openlayers.org/en/latest/examples/heatmap-earthquakes.html?q=heatmap (线上demo:Earthquakes Heatmap)
+     * 2、heatmapData值来源于heatMapdata.js，数据格式：[{"Lng":104.11542479025749,"Lat":30.55110759954495},{...},...]
+     *
+     * */
+</script>
+
+
+
+
+
+
+
+
+

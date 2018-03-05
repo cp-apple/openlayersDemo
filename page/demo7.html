@@ -1,0 +1,225 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>OpenLayers之实现地图点位聚合展示</title>
+    <link rel="stylesheet" href="../css/reset.css">
+    <link rel="stylesheet" href="../lib/openlayers/ol.css">
+    <link rel="stylesheet" href="../css/common.css">
+    <style>
+        .myOverlay{
+            border:1px solid #eee;
+            padding:5px 10px;
+            border-radius: 2px;
+            background-color: #fff;
+            box-shadow: 2px 2px 2px rgba(0,0,0,.3);
+            transition:all .5s;
+        }
+        .myOverlay p{margin:2px 0;}
+    </style>
+</head>
+<body>
+    <h2 class="titleH2">OpenLayers之实现地图点位聚合展示</h2>
+    <div id="cpMap" class="mapDemo"><div id="popup"></div></div>
+</body>
+</html>
+<script src="../lib/jquery/jquery-1.12.4.min.js"></script>
+<script src="../lib/openlayers/ol.js"></script>
+<script src="../js/heatMapdata.js"></script>
+<script>
+    //点位数据引用热力图数据
+    var coorDatas=heatmapData;
+    //最小层feature填充色
+    var earthquakeFill = new ol.style.Fill({
+        color: 'rgba(255, 153, 0, 0.8)'
+    });
+    //最小层feature笔画勾勒样式
+    var earthquakeStroke = new ol.style.Stroke({
+        color: 'rgba(255, 204, 0, 0.2)',
+        width: 1
+    });
+    //聚合层feature里的文字样式
+    var textFill = new ol.style.Fill({
+        color: '#fff'
+    });
+    //聚合层feature里的文字，笔画勾勒样式
+    var textStroke = new ol.style.Stroke({
+        color: 'rgba(0, 0, 0, 0.6)',
+        width: 3
+    });
+    //选中聚合层feature时，它的样式变化
+    var invisibleFill = new ol.style.Fill({
+        color: 'rgba(255, 255, 255, 0.01)'
+    });
+
+    //最小层feature样式
+    function createEarthquakeStyle(feature) {
+        return new ol.style.Style({
+            geometry: feature.getGeometry(),
+            image: new ol.style.RegularShape({
+                radius1: 10,  //恒星外半径
+                radius2: 3,  //恒星内半径
+                points: 5,
+                angle: Math.PI,
+                fill: earthquakeFill,
+                stroke: earthquakeStroke
+            })
+        });
+    }
+
+    var maxFeatureCount, vector;
+    //计算最大聚合层的样式
+    function calculateClusterInfo(resolution) {
+        maxFeatureCount = 0;
+        var features = vector.getSource().getFeatures();
+        var feature, radius;
+        for (var i = features.length - 1; i >= 0; --i) {
+            feature = features[i];
+            var originalFeatures = feature.get('features');
+            var extent = ol.extent.createEmpty();
+            var j, jj;
+            for (j = 0, jj = originalFeatures.length; j < jj; ++j) {
+                ol.extent.extend(extent, originalFeatures[j].getGeometry().getExtent());
+            }
+            maxFeatureCount = Math.max(maxFeatureCount, jj);
+            radius = 0.25 * (ol.extent.getWidth(extent) + ol.extent.getHeight(extent)) /
+                    resolution;
+            feature.set('radius', radius);
+        }
+    }
+
+    var currentResolution;
+    //聚合层样式
+    function styleFunction(feature, resolution) {
+        if (resolution != currentResolution) {
+            calculateClusterInfo(resolution);
+            currentResolution = resolution;
+        }
+        var style;
+        var size = feature.get('features').length;
+        if (size > 1) {
+            style = new ol.style.Style({
+                image: new ol.style.Circle({
+                    radius: feature.get('radius'),
+                    fill: new ol.style.Fill({
+                        color: [255, 153, 0, Math.min(0.8, 0.4 + (size / maxFeatureCount))]
+                    })
+                }),
+                text: new ol.style.Text({
+                    text: size.toString(),
+                    fill: textFill,
+                    stroke: textStroke
+                })
+            });
+        } else {
+            var originalFeature = feature.get('features')[0];
+            style = createEarthquakeStyle(originalFeature);
+        }
+        return style;
+    }
+
+    //聚合层feature选中后样式变化
+    function selectStyleFunction(feature) {
+        var styles = [new ol.style.Style({
+            image: new ol.style.Circle({
+                radius: feature.get('radius'),
+                fill: invisibleFill
+            })
+        })];
+        var originalFeatures = feature.get('features');
+        var originalFeature;
+        for (var i = originalFeatures.length - 1; i >= 0; --i) {
+            originalFeature = originalFeatures[i];
+            styles.push(createEarthquakeStyle(originalFeature));
+        }
+        return styles;
+    }
+
+    //聚合数据features
+    var polymerizationFeatures=[];
+    for(var i=0;i<coorDatas.length;i++){
+        var name='经纬度'+coorDatas[i].Lng+coorDatas[i].Lat;
+        polymerizationFeatures.push(new ol.Feature({
+            name:name,
+            geometry: new ol.geom.Point([coorDatas[i].Lng,coorDatas[i].Lat]),
+        }));
+    }
+    //聚合数据展示层
+    vector = new ol.layer.Vector({
+        source: new ol.source.Cluster({
+            distance:40,
+            source: new ol.source.Vector({
+                features:polymerizationFeatures
+            })
+        }),
+        style: styleFunction
+    });
+
+    //地图图层
+    var raster = new ol.layer.Tile({
+        source: new ol.source.OSM()
+    });
+
+    //创建地图
+    var map = new ol.Map({
+        layers: [raster, vector],
+        interactions: ol.interaction.defaults().extend([new ol.interaction.Select({
+            condition: function(evt) {
+                return evt.type == 'singleclick';  //evt.type == 'pointermove' ||
+            },
+            style: selectStyleFunction
+        })]),
+        target: 'cpMap',
+        view: new ol.View({
+            center: [104.120282,30.617923], // 定义地图显示中心（成都市锦江区成龙路狮子山）
+            projection: 'EPSG:4326', // 指定投影使用EPSG:4326一个等同于WGS84坐标系
+            zoom: 13
+        })
+    });
+
+    //添加一个覆盖层
+    var element =document.getElementById('popup');
+    var popup = new ol.Overlay({
+        element: element,
+        positioning: 'bottom-center',
+        stopEvent: false,
+        offset: [0, -10],
+        className:'myOverlay'
+    });
+    map.addOverlay(popup);
+
+    // 点击标记弹出提示信息
+    map.on('pointermove', function(evt) {
+        //检测与视口上像素相交的特征
+        var feature = map.forEachFeatureAtPixel(evt.pixel,
+                function(feature) {
+                    return feature;
+                });
+
+        if (feature) {
+            var coordinates = feature.getGeometry().getCoordinates();
+            var olCon='<p>地址：'+feature.getProperties().features[0].get('name')+'</p>';
+            element.innerHTML=olCon;
+            popup.setPosition(coordinates);  //展示覆盖层
+        } else {
+            popup.setPosition(undefined);  //隐藏覆盖层
+        }
+    });
+    /**
+     * 附加说明如下：
+     * 1、参考链接：http://openlayers.org/en/latest/examples/earthquake-clusters.html?q=earthquake (线上demo:Earthquake Clusters)
+     *
+     *
+     *
+     *
+     * */
+</script>
+
+
+
+
+
+
+
+
+

@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>OpenLayers之实现地图信息窗体显示</title>
+    <link rel="stylesheet" href="../css/reset.css">
+    <link rel="stylesheet" href="../lib/openlayers/ol.css">
+    <link rel="stylesheet" href="../css/common.css">
+    <style>
+        /*自定义覆盖层样式*/
+        .myOverlay{
+            border:1px solid #eee;
+            padding:5px 10px;
+            border-radius: 2px;
+            background-color: #fff;
+            box-shadow: 2px 2px 2px rgba(0,0,0,.3);
+        }
+        #marker{
+            background-color: yellowgreen;
+            color: #fff;
+            padding:2px 6px;
+            border-radius: 2px;
+        }
+    </style>
+</head>
+<body>
+    <h2 class="titleH2">OpenLayers之实现地图信息窗体显示</h2>
+    <div id="cpMap" class="mapDemo"><div id="popup"></div></div>
+</body>
+</html>
+<script src="../lib/jquery/jquery-1.12.4.min.js"></script>
+<script src="../lib/openlayers/ol.js"></script>
+<script>
+    //创建一个标记
+    var iconFeature1 = new ol.Feature({
+        geometry: new ol.geom.Point([104.086115,30.659363]),
+        name: '四川春熙路',
+        tel:'0231-12345',
+        keeper:'白雀歌',
+        population: 4000,
+        rainfall: 500
+    });
+    var iconStyle1 = new ol.style.Style({
+        image: new ol.style.Icon(({
+            anchor: [0.5, 46],
+            anchorXUnits: 'fraction',
+            anchorYUnits: 'pixels',
+            src: 'https://openlayers.org/en/v4.6.4/examples/data/icon.png'
+        }))
+    });
+    iconFeature1.setStyle(iconStyle1);
+
+    //创建第二个标记
+    var iconFeature2 = new ol.Feature({
+        geometry: new ol.geom.Point([121.150201,23.926039]),
+        name: '湾湾',
+        tel:'1101001100',
+        keeper:'all people',
+        population: 4000,
+        rainfall: 500
+    });
+    var iconStyle2 = new ol.style.Style({
+        image: new ol.style.Icon(({
+            anchor: [0.5, 46],
+            anchorXUnits: 'fraction',
+            anchorYUnits: 'pixels',
+            src: 'https://openlayers.org/en/v4.6.4/examples/data/icon.png'
+        }))
+    });
+    iconFeature2.setStyle(iconStyle2);
+
+    var vectorSource = new ol.source.Vector({
+        features: [iconFeature1,iconFeature2]
+    });
+
+    //图标层
+    var vectorLayer = new ol.layer.Vector({
+        source: vectorSource
+    });
+
+    //地图图层
+    var rasterLayer = new ol.layer.Tile({
+        source: new ol.source.TileJSON({
+            url: 'https://api.tiles.mapbox.com/v3/mapbox.geography-class.json?secure',
+            crossOrigin: ''
+        })
+    });
+
+    //创建地图
+    var map = new ol.Map({
+        layers: [rasterLayer, vectorLayer],
+        target: document.getElementById('cpMap'),
+        view: new ol.View({
+            center: [104.072192,30.663495],  // 定义地图显示中心（成都市天府广场）
+            projection: 'EPSG:4326',  // 指定投影使用EPSG:4326一个等同于WGS84坐标系
+            zoom: 4
+        })
+    });
+
+    //添加一个覆盖层
+    var element =document.getElementById('popup');
+    var popup = new ol.Overlay({
+        element: element,
+        positioning: 'bottom-center',
+        stopEvent: false,
+        offset: [0, -50],
+        className:'myOverlay'
+    });
+    map.addOverlay(popup);
+
+    // 点击标记弹出提示信息
+    map.on('click', function(evt) {
+        //检测与视口上像素相交的特征
+        var feature = map.forEachFeatureAtPixel(evt.pixel,
+                function(feature) {
+                    return feature;
+                });
+        if (feature) {
+            var coordinates = feature.getGeometry().getCoordinates();
+            var olCon='<p>地址：'+feature.get("name")+'</p><p>电话：'+feature.get("tel")+'</p><p>守护人：'+feature.get("keeper")+'</p>';
+            $(element).html(olCon);
+            popup.setPosition(coordinates);  //展示覆盖层
+        } else {
+            popup.setPosition(undefined);  //隐藏覆盖层
+        }
+    });
+
+    // 当超过标记时改变鼠标光标
+    map.on('pointermove', function(e) {
+        if (e.dragging) {
+            popup.setPosition(undefined);
+            return;
+        }
+        var pixel = map.getEventPixel(e.originalEvent);
+        var hit = map.hasFeatureAtPixel(pixel);
+        map.getTarget().style.cursor = hit ? 'pointer' : '';
+    });
+
+    /**
+     * 附加说明如下：
+     * 1、参考线上demo的链接：http://openlayers.org/en/latest/examples/icon.html?q=marker
+     *
+     *
+     * */
+</script>
+
+
+
+
+
+
+
+
+

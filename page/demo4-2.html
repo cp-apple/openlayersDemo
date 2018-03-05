@@ -1,0 +1,305 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>OpenLayers之实现线面矢量数据的绘制、修改和显示</title>
+    <link rel="stylesheet" href="../css/reset.css">
+    <link rel="stylesheet" href="../lib/openlayers/ol.css">
+    <link rel="stylesheet" href="../css/common.css">
+    <style>
+        .titleH2{
+            top:1%;
+        }
+        .formMsg{
+            position: relative;
+            top:3%;
+            text-align: center;
+        }
+        .formMsg button,.formMsg span{
+            vertical-align: bottom;
+        }
+        .formMsg button{
+            cursor: pointer;
+        }
+        .formMsg textarea {
+            resize: both;
+        }
+        .mapDemo{
+            transform:translateY(6%);
+        }
+    </style>
+</head>
+<body>
+    <h2 class="titleH2">OpenLayers之实现线面矢量数据的绘制、修改、删除和显示</h2>
+    <div class="formMsg">
+        <span>区域数据：</span><textarea id="areaData" cols="60" rows="4"></textarea>
+        <button id="starDrawFBtn">开始绘制</button>
+        <button id="endDrawFBtn">结束绘制</button>
+        <button id="saveBtn">保存</button>
+        <button id="removeFBtn">删除</button>
+        <button id='drawAPolygonBtn'>绘制已有feature</button>
+    </div>
+    <div id="cpMap" class="mapDemo"></div>
+</body>
+</html>
+<script src="../lib/jquery/jquery-1.12.4.min.js"></script>
+<script src="../lib/openlayers/ol.js"></script>
+<script>
+    var areaData = document.getElementById('areaData'); //文本域
+    var drawAPolygonBtn = document.getElementById('drawAPolygonBtn'); //绘制已有feature按钮
+    var draw, snap; // 交互绘制。global so we can remove them later
+    var selectClick; //交互select
+    var modifyDrag; //交互modify
+    var featureID = 0;
+
+    //地图层瓦片
+    var raster = new ol.layer.Tile({
+        source: new ol.source.OSM()
+    });
+
+    var source = new ol.source.Vector();
+
+    //图标层
+    var vector = new ol.layer.Vector({
+        source: source,
+        style: new ol.style.Style({
+            fill: new ol.style.Fill({
+                color: 'rgba(255, 255, 200, 0.6)'
+            }),
+            stroke: new ol.style.Stroke({
+                color: '#f63',
+                width: 2
+            }),
+            image: new ol.style.Circle({
+                radius: 7,
+                fill: new ol.style.Fill({
+                    color: '#ffcc33'
+                })
+            })
+        })
+    });
+    //创建地图
+    var map = new ol.Map({
+        layers: [raster, vector],
+        target: 'cpMap',
+        view: new ol.View({
+            center: [104.072192, 30.663588], // 定义地图显示中心（成都市天府广场）
+            projection: 'EPSG:4326', // 指定投影使用EPSG:4326一个等同于WGS84坐标系
+            zoom: 14
+        })
+    });
+
+    //添加交互----修改
+    function modifyInteractionFunc() {
+        modifyDrag = new ol.interaction.Modify({
+            source: source
+        });
+        map.addInteraction(modifyDrag);
+    }
+
+    //添加交互----绘制feature
+    function addInteractions(source) {
+        map.removeInteraction(selectClick);
+        modifyInteractionFunc();
+        draw = new ol.interaction.Draw({
+            source: source,
+            type: 'Polygon'
+        });
+        map.addInteraction(draw);
+        draw.on('drawend', function(e) {
+            featureID = featureID + 1;
+            e.feature.setId(featureID);
+        });
+
+        snap = new ol.interaction.Snap({
+            source: source
+        });
+        map.addInteraction(snap);
+    }
+
+    //添加交互----选择
+    var selectedFeatureID; //存放被选中feature的ID
+    function addSelect() {
+        map.removeInteraction(draw);
+        map.removeInteraction(snap);
+        selectClick = new ol.interaction.Select({
+            condition: ol.events.condition.click
+        });
+        map.addInteraction(selectClick);
+
+        selectClick.on('select', function(e) {
+            selectedFeatureID = e.selected[0].getId();
+        });
+    }
+
+    //获取所有feature的坐标集。
+    function getFeaturesCoors() {
+        var allFeatures = '';
+        //获取图层上所有feature的坐标数据值
+        var layers = map.getLayers().getArray();
+        //循环除去地图层的所有层
+        for (var i = 1; i < layers.length; i++) {
+            var featuresData = layers[i].getSource().getFeatures();
+            for (var m = 0; m < featuresData.length; m++) {
+                allFeatures += JSON.stringify(featuresData[m].getGeometry().getCoordinates()) + ';';
+            }
+        }
+        allFeatures = allFeatures.substr(0, allFeatures.length - 1);
+        areaData.value = allFeatures;
+    }
+
+    //feature坐标值改变，文本域的值随之改变。source用于区分数据源
+    function featureSourceListenerEvent(source) {
+        //新添加feature时触发
+        source.on("addfeature", function(e) {
+            getFeaturesCoors();
+        });
+        //改变一个feature时触发
+        source.on("changefeature", function(e) {
+            getFeaturesCoors();
+        });
+        //删除一个feature时触发
+        source.on("removefeature", function(e) {
+            getFeaturesCoors();
+        });
+    }
+    featureSourceListenerEvent(source);
+
+    /*--------------------按钮操作区域 begin-------------------*/
+    //开始绘制按钮
+    var starDrawFBtn = document.getElementById('starDrawFBtn');
+    starDrawFBtn.onclick = function() {
+        addInteractions(source);
+    };
+
+    //结束绘制按钮
+    var endDrawFBtn = document.getElementById('endDrawFBtn');
+    endDrawFBtn.onclick = function() {
+        map.removeInteraction(draw);
+        map.removeInteraction(snap);
+        map.removeInteraction(modifyDrag);
+        addSelect();
+    };
+
+    //保存按钮，提交地图上所有feature的坐标值，缓存到本地
+    var saveBtn = document.getElementById('saveBtn');
+    saveBtn.onclick = function() {
+        localStorage.featuresStr = areaData.value;
+        alert('保存成功。请刷新页面点击绘制已有feature按钮查看。');
+    };
+
+    //删除按钮，删除选中的feature
+    var removeFBtn = document.getElementById('removeFBtn');
+    removeFBtn.onclick = function() {
+        map.removeInteraction(draw);
+        map.removeInteraction(snap);
+        map.removeInteraction(modifyDrag);
+
+        if (selectedFeatureID) {
+            var features = source.getFeatures();
+            if (features != null && features.length > 0) {
+                for (var x in features) {
+                    var id = features[x].getId();
+
+                    if (id == selectedFeatureID) {
+                        source.removeFeature(features[x]);
+                        selectClick.getFeatures().clear(); //清除选中的feature
+                        alert('删除成功。');
+                        break;
+                    }
+                }
+            }
+        } else {
+            alert('请选择要被删除的feature。');
+        }
+    }
+
+    /*--------------------按钮操作区域 end-------------------*/
+
+
+
+    //用已有数据绘制多边形 begin-------------------
+    if (!localStorage.featuresStr) {
+        drawAPolygonBtn.disabled = true;
+    } else {
+        var hasData = localStorage.featuresStr;
+        var hasDataArr = hasData.split(';');
+        //创建feature
+        var pgFeatures = [];
+        for (var i = 0; i < hasDataArr.length; i++) {
+            pgFeatures.push(new ol.Feature({
+                geometry: new ol.geom.Polygon(JSON.parse(hasDataArr[i])),
+                name: '很酷的多边形',
+                population: 4000,
+                rainfall: 500
+            }));
+        }
+        var pgsource = new ol.source.Vector({
+            features: pgFeatures
+        });
+        featureSourceListenerEvent(pgsource);
+        //多边形层
+        var pgvector = new ol.layer.Vector({
+            source: pgsource,
+            style: new ol.style.Style({
+                fill: new ol.style.Fill({
+                    color: 'rgba(255, 255, 200, 0.8)'
+                }),
+                stroke: new ol.style.Stroke({
+                    color: '#f63',
+                    width: 2
+                }),
+                image: new ol.style.Circle({
+                    radius: 7,
+                    fill: new ol.style.Fill({
+                        color: '#ffcc33'
+                    })
+                })
+            })
+        });
+        //绘制已有feature按钮
+        drawAPolygonBtn.onclick = function() {
+            map.addLayer(pgvector);
+            //设置地图中心点到多边形中心
+            map.getView().setCenter([104.06910384219546, 30.6657332850508]);
+            map.getView().setZoom(13);
+            //修改绘制多边形已存在的交互
+            var pgModify = new ol.interaction.Modify({
+                source: pgsource,
+                condition: ol.events.condition.pointermove
+            });
+            map.addInteraction(pgModify);
+            addInteractions(pgsource);
+            areaData.value = hasData; //文本域赋值
+        };
+    }
+
+
+    /**
+     * 附加说明如下：
+     * 1、参考链接：http://openlayers.org/en/latest/examples/draw-and-modify-features.html?q=interaction.modify（线上demo:Draw and Modify Features）
+     * 2、参考链接：http://openlayers.org/en/latest/examples/select-features.html?q=Interaction.select （线上demo:Select Features）
+     * 3、参考链接：http://blog.csdn.net/adventure_xph/article/details/52022373 （OpenLayers3入门篇-单击事件。理解如何为一个特性绑定事件）
+     * 4、参考链接：http://blog.csdn.net/feishusang/article/details/61616101  （Openlayers通过feature获取Layer以及通过点获取线feature）
+     *
+     *
+     * 疑问一答：
+     * 问：1、var draw, snap;在全局时可以移除他们？？
+     * 答：移除交互map.removeInteraction(draw);map.removeInteraction(snap);
+     * 问：2、绘制的feature改变时，文本域数据跟着改变。怎么实现？
+     * 答：2、在drawend绘制完成时，取到当前feature，并为它绑定change事件。
+     * 问：3、删除feature怎么实现？
+     * 答：3、思路：新增feature时为他设置id，选择时获取id，然后根据id来进行删除。用到了（ol.Feature的getId(0,setId()方法。）。参考：https://gis.stackexchange.com/questions/126909/remove-selected-feature-openlayers-3（Remove selected feature Openlayers 3）
+     * 问：4、删除回填的feature办不到？因为没有id
+     *
+     * */
+</script>
+
+
+
+
+
+
+
+
+

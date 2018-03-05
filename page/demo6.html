@@ -1,0 +1,221 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>OpenLayers之实现地图轨迹图展示</title>
+    <link rel="stylesheet" href="../css/reset.css">
+    <link rel="stylesheet" href="../lib/openlayers/ol.css">
+    <link rel="stylesheet" href="../css/common.css">
+    <style>
+        .titleH2{
+            top:3%;
+        }
+        .formMsg{
+            position: relative;
+            top:6%;
+            text-align: center;
+        }
+        .formMsg button,.formMsg span{
+            vertical-align: bottom;
+        }
+        .formMsg button{
+            cursor: pointer;
+        }
+        .formMsg textarea {
+            resize: both;
+        }
+        .mapDemo{
+            transform:translateY(10%);
+        }
+    </style>
+</head>
+<body>
+    <h2 class="titleH2">OpenLayers之实现地图轨迹图展示</h2>
+    <div class="formMsg">
+        <label for="speed">
+            <span>速度：</span>
+            <input id="speed" type="range" min="10" max="999" step="10" value="60">
+        </label>
+        <button id="start-animation">开始动画</button>
+    </div>
+    <div id="cpMap" class="mapDemo"></div>
+
+</body>
+</html>
+<script src="../lib/jquery/jquery-1.12.4.min.js"></script>
+<script src="../lib/openlayers/ol.js"></script>
+<script>
+    //路线坐标点（从成都天府广场到北京）
+    var routeCoords = [[104.06375033591313,30.659654666998076],[104.06375033591313,30.66952519617288],[104.06555278037114,30.67501836023538],[104.06211955283207,30.67501836023538],[104.06692607138676,30.676649143316435],[104.06887676873544,30.682384193340372],[104.0711941973243,30.688564002910685],[104.07033589043954,30.694572151104044],[104.0734257952247,30.69740456382377],[104.06999256768563,30.700065315166544],[104.07857563653329,30.700580299297403],[104.0960850969825,30.70015114585502],[104.10226490655282,30.69937866965873],[104.13410443387768,30.6988841669495],[104.14253144693149,30.704205669635048],[104.1468385862687,30.723946727017285],[104.15250341170815,30.74114407587881],[104.17843988457867,30.779486984006752],[104.18290308037945,30.788413375608314],[104.1937177471275,30.8012879788798],[104.21440440812724,30.86275640164915],[104.18281871476786,30.866189629188213],[104.22258172742379,30.909760403228884],[104.17726312390816,30.92280666787732],[104.11471596036479,30.938661936889435],[104.19162025723979,30.96475446618631],[104.20922335141088,31.058762476340636],[104.19811217802574,31.131359630194968],[104.23862426298668,31.160198741523093],[104.2454907180648,31.197277598944968],[104.22214477079918,31.262508922187155],[104.27364318284333,31.3684395926251],[104.31278197678864,31.40963832309385],[104.3491741887027,31.449463762546976],[104.3407471733793,31.560450640720468],[104.4087875012828,31.611636942144298],[104.41222072882186,31.64253598999586],[104.4307601575328,31.678928201909923],[104.4582259778453,31.690601175542735],[104.41003594510353,31.776931238660353],[104.55385696730316,31.897281467590062],[104.57720291456879,31.927493869933812],[104.57651626906097,31.952213108215062],[104.49274551710785,32.01195126739475],[104.55935013136566,32.03735715118381],[104.58637899445826,32.10271331566784],[104.44440528102926,32.262256937972204],[104.62567969509176,32.292469340315954],[104.63941260524801,32.380359965315954],[104.80795285873401,32.832547226484905],[104.65689084701526,32.920437851484905],[104.79496901656682,32.975369492109905],[104.86363356734807,33.079739609297405],[104.89659255172307,33.236294785078655],[104.8294261303716,33.41706980262261],[104.9942210522466,33.49397409949761],[105.1425364819341,33.60933054481011],[105.06088808898565,33.79659750159448],[105.12680605773565,33.88723470862573],[105.2613885772669,33.98611166175073],[105.36051521674506,34.22781087038054],[105.34029038163573,34.49273118309939],[105.32106430741698,34.66301926903689],[105.36226303788573,34.84704026513064],[104.82660927992582,35.93852554734659],[105.58166962716358,36.44789159893491],[106.39465790841358,37.63441503643491],[106.57043915841358,38.60121191143491],[105.66956025216358,39.19447363018491],[106.62237449612644,39.32431198161074],[107.25958152737644,40.29110885661074],[106.99590965237644,41.19198776286074],[107.58917137112644,41.54355026286074],[109.34498631838936,40.029434491485794],[110.90504491213936,40.776504803985794],[111.89381444338936,40.776504803985794],[112.35524022463936,41.34979138112328],[112.39918553713936,41.70135388112328],[112.68483006838936,42.14080700612328],[113.08879608574641,42.01034445449816],[113.80889991730311,41.668769511017075],[114.17144874542811,41.536933573517075],[114.47906593292811,41.372138651642075],[115.52276710480311,41.503974589142075],[115.79742530792811,41.196357401642075],[116.74224952667811,40.734931620392075],[116.64959917395056,40.382058322504236],[116.62213335363806,40.200783908441736],[116.62512961726001,39.98105736380091],[116.63454366809634,39.86084763278351],[116.60707784778384,39.87183396090851],[116.54390646106509,39.87732712497101],[116.46063508717604,39.84698987766476],[116.4283754289843,39.87555200277623],[116.41052264578117,39.89512139974889],[116.40296954519523,39.905421082366075],[116.3916086831501,39.905421082366075]];
+    var routeLength = routeCoords.length;
+    //路线feature
+    var routeFeature = new ol.Feature({
+        type: 'route',
+        geometry: new ol.geom.LineString(routeCoords)
+    });
+    //动画点feature
+    var geoMarker = new ol.Feature({
+        type: 'geoMarker',
+        geometry: new ol.geom.Point(routeCoords[0])
+    });
+    //路线开始图标feature
+    var startMarker = new ol.Feature({
+        type: 'icon',
+        geometry: new ol.geom.Point(routeCoords[0])
+    });
+    //路线结束图标feature
+    var endMarker = new ol.Feature({
+        type: 'icon',
+        geometry: new ol.geom.Point(routeCoords[routeLength - 1])
+    });
+
+    var styles = {
+        'route': new ol.style.Style({
+            stroke: new ol.style.Stroke({
+                width: 6,
+                color: [237, 212, 0, 0.8]
+            })
+        }),
+        'icon': new ol.style.Style({
+            image: new ol.style.Icon({
+                anchor: [0.5, 1],
+                src: 'https://openlayers.org/en/v4.6.4/examples/data/icon.png'
+            })
+        }),
+        'geoMarker': new ol.style.Style({
+            image: new ol.style.Circle({
+                radius: 7,
+                snapToPixel: false,
+                fill: new ol.style.Fill({
+                    color: 'black'
+                }),
+                stroke: new ol.style.Stroke({
+                    color: 'white',
+                    width: 5
+                })
+            })
+        })
+    };
+
+    var animating = false;
+    var speed, nowDate;
+    //速度范围
+    var speedInput = document.getElementById('speed');
+    //开始动画按钮
+    var startButton = document.getElementById('start-animation');
+
+    //路线动画层
+    var vectorLayer = new ol.layer.Vector({
+        source: new ol.source.Vector({
+            features: [routeFeature, geoMarker, startMarker, endMarker]
+        }),
+        style: function(feature) {
+            // 如果正在动画中，隐藏动画点geoMarker
+            if (animating && feature.get('type') === 'geoMarker') {
+                return null;
+            }
+            return styles[feature.get('type')];
+        }
+    });
+    //地图层瓦片
+    var raster = new ol.layer.Tile({
+        source: new ol.source.OSM()
+    });
+    //创建地图
+    var center= [111.1837605640008,37.563752709861]; // 定义地图显示中心（吕梁市）
+    var map = new ol.Map({
+        target: 'cpMap',
+        loadTilesWhileAnimating: true,
+        view: new ol.View({
+            center:center,
+            projection: 'EPSG:4326', // 指定投影使用EPSG:4326一个等同于WGS84坐标系
+            zoom:6,
+            minZoom: 2,
+            maxZoom: 19
+        }),
+        layers: [raster, vectorLayer]
+    });
+
+    //移动feature
+    var moveFeature = function(event) {
+        var vectorContext = event.vectorContext;
+        var frameState = event.frameState;
+
+        if (animating) {
+            var elapsedTime = frameState.time - nowDate;
+            //在这里，提高速度的技巧是在lineString坐标上跳转一些索引
+            var index = Math.round(speed * elapsedTime / 1000);
+
+            if (index >= routeLength) {
+                stopAnimation(true);
+                return;
+            }
+
+            var currentPoint = new ol.geom.Point(routeCoords[index]);
+            var feature = new ol.Feature(currentPoint);
+            vectorContext.drawFeature(feature, styles.geoMarker);
+        }
+        //告诉OpenLayers继续postcompose动画
+        map.render();
+    };
+
+    //开始动画
+    function startAnimation() {
+        if (animating) {
+            stopAnimation(false);
+        } else {
+            animating = true;
+            nowDate = new Date().getTime();
+            speed = speedInput.value;
+            startButton.textContent = '结束动画';
+            // 隐藏动画点feature
+            geoMarker.setStyle(null);
+            map.getView().setCenter(center);
+            map.on('postcompose', moveFeature);
+            map.render();
+        }
+    }
+
+    /**
+     * 结束动画
+     * @param {boolean} ended 判断动画是否取消
+     */
+    function stopAnimation(ended) {
+        animating = false;
+        startButton.textContent = '开始动画';
+        // 如果动画取消，设置标记到开始位置
+        var coord = ended ? routeCoords[routeLength - 1] : routeCoords[0];
+        /** @type {ol.geom.Point} */
+        geoMarker.getGeometry().setCoordinates(coord);
+        map.un('postcompose', moveFeature);
+    }
+    //开始动画按钮
+    startButton.addEventListener('click', startAnimation, false);
+
+    /**
+     * 附加说明如下：
+     * 1、参考链接：http://openlayers.org/en/latest/examples/feature-move-animation.html?q=animation (线上demo:Marker Animation)
+     *
+     *
+     * 疑问一答
+     * 问：1、var geoMarker = new ol.Feature({
+     *      type: 'geoMarker',  //??????
+     *      geometry: new ol.geom.Point(routeCoords[0])
+     *  });
+     * 答：1、
+     * 问：2、map.on('postcompose', moveFeature);  postcompose？？？？
+     * 答：2、
+     *
+     *
+     *
+     * */
+</script>
+
+
+
+
+
+
+
+
+

@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>OpenLayers之实现地图点的绘制、修改和显示</title>
+    <link rel="stylesheet" href="../css/reset.css">
+    <link rel="stylesheet" href="../lib/openlayers/ol.css">
+    <link rel="stylesheet" href="../css/common.css">
+    <style>
+        .titleH2{
+            top:4%;
+        }
+        .formMsg{
+            position: relative;
+            top:6%;
+            text-align: center;
+        }
+        .mapDemo{
+            transform:translateY(10%);
+        }
+    </style>
+</head>
+<body>
+    <h2 class="titleH2">OpenLayers之实现地图点位显示</h2>
+    <div class="formMsg">
+        <button id="selPBtn" type="button">选点</button>
+        <label for="">Lng:<input id="Lng" type="text"></label>
+        <label for="">Lat:<input id="Lat" type="text"></label>
+    </div>
+    <div id="cpMap" class="mapDemo"></div>
+</body>
+</html>
+<script src="../lib/jquery/jquery-1.12.4.min.js"></script>
+<script src="../lib/openlayers/ol.js"></script>
+<script>
+    //地图瓦片层
+    var raster = new ol.layer.Tile({
+        source: new ol.source.OSM()
+    });
+    //创建一个标记
+    var baseCoors=[104.072263,30.663464]; //成都天府广场坐标
+    var iconFeature = new ol.Feature({
+        geometry: new ol.geom.Point(baseCoors),
+        name: '天府广场',
+        population: 4000,
+        rainfall: 500
+    });
+    var iconStyle = new ol.style.Style({
+        image: new ol.style.Icon(({
+            anchor: [0.5, 46],
+            anchorXUnits: 'fraction',
+            anchorYUnits: 'pixels',
+            src: 'https://openlayers.org/en/v4.6.4/examples/data/icon.png'
+        }))
+    });
+    iconFeature.setStyle(iconStyle);
+    var source = new ol.source.Vector({
+        features: [iconFeature]
+    });
+    //图标层
+    var vector = new ol.layer.Vector({
+        source: source
+    });
+    //创建地图
+    var map = new ol.Map({
+        layers: [raster],
+        target: 'cpMap',
+        view: new ol.View({
+            center: [104.072192, 30.663588], // 定义地图显示中心（成都市天府广场）
+            projection: 'EPSG:4326', // 指定投影使用EPSG:4326一个等同于WGS84坐标系
+            zoom: 10
+        })
+    });
+
+    //修改已存在的交互
+    var modify = new ol.interaction.Modify({
+        source: source,
+        condition: ol.events.condition.pointermove
+    });
+    map.addInteraction(modify);
+
+    //添加交互事件，获取点位坐标
+    modify.on('modifyend', pointermoveEvent);
+    var Lng=document.getElementById('Lng');
+    var Lat=document.getElementById('Lat');
+    function pointermoveEvent(e) {
+        var coors = e.features.getArray()[0].getGeometry().getCoordinates();
+        Lng.value=coors[0];
+        Lat.value=coors[1];
+    }
+
+    //为图标添加坐标改变触发的事件
+    iconFeature.on('change', iconChange);
+    function iconChange(e) {
+        var coors = e.target.getGeometry().getCoordinates();
+        Lng.value = coors[0];
+        Lat.value = coors[1];
+    }
+
+    //选点按钮
+    $('#selPBtn').click(function(){
+        map.addLayer(vector);
+        Lng.value=baseCoors[0];
+        Lat.value=baseCoors[1];
+    });
+    /**
+     * 附加说明如下：
+     * 1、参考链接：http://openlayers.org/en/latest/examples/draw-and-modify-features.html（线上demo:Draw and Modify Features）
+     * 2、参考链接：http://blog.csdn.net/adventure_xph/article/details/52022373 （OpenLayers3入门篇-单击事件。理解如何为一个特性绑定事件）
+     *
+     * */
+</script>
+
+
+
+
+
+
+
+
+
